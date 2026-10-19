@@ -42,6 +42,13 @@ app.MapPost("/vehicles", async (
     CreateVehicleRequest request,
     FleetCareDbContext db) =>
 {
+    if (request.Name?.Trim().Length > 200)
+    {
+        return Results.Problem(
+            statusCode: 400,
+            title: "Некорректное название автомобиля",
+            detail: "Название не должно превышать 200 символов.");
+    }
     try
     {
         var vehicle = new Vehicle(
@@ -90,6 +97,13 @@ app.MapPost("/telemetry", async (
     CreateTelemetryRequest request,
     FleetCareDbContext db) =>
 {
+    if (request.FaultCode?.Trim().Length > 50)
+    {
+        return Results.Problem(
+            statusCode: 400,
+            title: "Некорректный код неисправности",
+            detail: "Код неисправности не должен превышать 50 символов.");
+    }
     var vehicleExists = await db.Vehicles
         .AnyAsync(x => x.Id == request.VehicleId);
 
