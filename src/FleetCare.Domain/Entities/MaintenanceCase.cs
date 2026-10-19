@@ -5,19 +5,19 @@ namespace FleetCare.Domain.Entities;
 
 public sealed class MaintenanceCase
 {
-    public Guid Id { get; } = Guid.NewGuid();
+    public Guid Id { get; private set; } = Guid.NewGuid();
 
-    public Guid VehicleId { get; }
+    public Guid VehicleId { get; private set; }
 
-    public Guid SourceEventId { get; }
+    public Guid SourceEventId { get; private set; }
 
-    public MaintenanceReason Reason { get; }
+    public MaintenanceReason Reason { get; private set; }
 
-    public string? FaultCode { get; }
+    public string? FaultCode { get; private set; }
 
     public CaseStatus Status { get; private set; } = CaseStatus.New;
 
-    public DateTimeOffset CreatedAt { get; }
+    public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset? CompletedAt { get; private set; }
 

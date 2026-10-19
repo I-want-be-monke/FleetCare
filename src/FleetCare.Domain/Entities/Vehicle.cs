@@ -2,15 +2,15 @@
 
 public sealed class Vehicle
 {
-    public Guid Id { get; } = Guid.NewGuid();
+    public Guid Id { get; private set; } = Guid.NewGuid();
 
-    public string Name { get; }
+    public string Name { get; private set; }
 
     public int CurrentOdometerKm { get; private set; }
 
     public int LastServiceOdometerKm { get; private set; }
 
-    public int ServiceIntervalKm { get; }
+    public int ServiceIntervalKm { get; private set; }
 
     public Vehicle(
         string name,
