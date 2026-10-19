@@ -12,6 +12,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 
+builder.Services.AddProblemDetails();
+
 // Enum в HTTP будет представлен строкой: "New", "Completed".
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -31,6 +33,9 @@ builder.Services.AddDbContext<FleetCareDbContext>(options =>
 builder.Services.AddScoped<MaintenanceService>();
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
+app.UseStatusCodePages();
 
 if (app.Environment.IsDevelopment())
 {
