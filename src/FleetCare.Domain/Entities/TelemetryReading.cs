@@ -2,12 +2,12 @@
 
 public sealed class TelemetryReading
 {
-    public Guid EventId { get; }
-    public Guid VehicleId { get; }
+    public Guid EventId { get; private set; }
+    public Guid VehicleId { get; private set; }
     public DateTimeOffset OccurredAt { get; }
-    public int OdometerKm { get; }
-    public double EngineTempC { get; }
-    public string? FaultCode { get; }
+    public int OdometerKm { get; private set; }
+    public double EngineTempC { get; private set; }
+    public string? FaultCode { get; private set; }
 
     public TelemetryReading(
         Guid eventId,

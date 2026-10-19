@@ -2,13 +2,13 @@
 
 public sealed class OutboxMessage
 {
-    public Guid Id { get; } = Guid.NewGuid();
+    public Guid Id { get; private set; } = Guid.NewGuid();
 
-    public string EventType { get; }
+    public string EventType { get; private set; }
 
-    public string PayloadJson { get; }
+    public string PayloadJson { get; private set; }
 
-    public DateTimeOffset CreatedAt { get; }
+    public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset? PublishedAt { get; private set; }
 

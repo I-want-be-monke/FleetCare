@@ -2,11 +2,11 @@
 
 public sealed class ProcessedMessage
 {
-    public Guid MessageId { get; }
+    public Guid MessageId { get; private set; }
 
-    public string HandlerName { get; }
+    public string HandlerName { get; private set; }
 
-    public DateTimeOffset ProcessedAt { get; }
+    public DateTimeOffset ProcessedAt { get; private set; }
 
     public ProcessedMessage(
         Guid messageId,
