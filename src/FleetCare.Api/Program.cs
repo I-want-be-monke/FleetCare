@@ -47,13 +47,23 @@ app.MapPost("/vehicles", async (
     CreateVehicleRequest request,
     FleetCareDbContext db) =>
 {
-    if (request.Name?.Trim().Length > 200)
+    
+    if (string.IsNullOrWhiteSpace(request.Name))
+    {
+        return Results.Problem(
+            statusCode: 400,
+            title: "Некорректное название автомобиля",
+            detail: "Название автомобиля обязательно.");
+    }
+
+    if (request.Name.Trim().Length > 200)
     {
         return Results.Problem(
             statusCode: 400,
             title: "Некорректное название автомобиля",
             detail: "Название не должно превышать 200 символов.");
     }
+
     try
     {
         var vehicle = new Vehicle(
