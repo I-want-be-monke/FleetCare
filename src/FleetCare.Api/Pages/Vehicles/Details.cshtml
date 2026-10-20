@@ -1,0 +1,196 @@
+﻿@page "/dashboard/vehicles/{id:guid}"
+@model FleetCare.Api.Pages.Vehicles.DetailsModel
+
+@{
+    ViewData["Title"] = "Карточка автомобиля";
+}
+
+<h1>Карточка автомобиля</h1>
+
+@if (TempData["Notice"] is not null)
+{
+    <p class="notice">@TempData["Notice"]</p>
+}
+
+@if (TempData["Error"] is not null)
+{
+    <p class="error">@TempData["Error"]</p>
+}
+
+@if (Model.Vehicle is not null)
+{
+    <section class="card">
+        <h2>@Model.Vehicle.Name</h2>
+
+        <p>
+            Текущий пробег:
+            <strong>@Model.Vehicle.CurrentOdometerKm км</strong>
+        </p>
+
+        <p>
+            Пробег последнего ТО:
+            @Model.Vehicle.LastServiceOdometerKm км
+        </p>
+
+        <p>
+            Интервал ТО:
+            @Model.Vehicle.ServiceIntervalKm км
+        </p>
+
+        <p>
+            Состояние:
+            <strong>
+                @(Model.Vehicle.IsServiceDue
+                    ? "Требуется ТО"
+                    : "ТО пока не требуется")
+            </strong>
+        </p>
+    </section>
+
+    <section class="card">
+        <h2>Добавить телеметрию</h2>
+
+        <form method="post"
+              asp-page-handler="AddTelemetry"
+              asp-route-id="@Model.Id">
+
+            <div asp-validation-summary="All"
+                 class="error"></div>
+
+            <div class="form-grid">
+                <label>
+                    Пробег, км
+                    <input asp-for="Form.OdometerKm"
+                           type="number" />
+                </label>
+
+                <label>
+                    Температура, °C
+                    <input asp-for="Form.EngineTempC"
+                           type="number"
+                           step="0.1" />
+                </label>
+
+                <label>
+                    Код ошибки (необязательно)
+                    <input asp-for="Form.FaultCode"
+                           placeholder="P0420" />
+                </label>
+            </div>
+
+            <button type="submit">
+                Сохранить показание
+            </button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>График температуры двигателя</h2>
+
+        @if (Model.Readings.Count < 2)
+        {
+            <p>
+                Для построения графика нужны
+                минимум два показания.
+            </p>
+        }
+        else
+        {
+            <svg class="chart"
+                 viewBox="0 0 800 230"
+                 role="img"
+                 aria-label="График температуры двигателя">
+
+                <line x1="30" y1="190"
+                      x2="770" y2="190"
+                      stroke="#94a3b8"
+                      stroke-width="2" />
+
+                <line x1="30" y1="30"
+                      x2="30" y2="190"
+                      stroke="#94a3b8"
+                      stroke-width="2" />
+
+                <polyline
+                    points="@Model.ChartPoints"
+                    fill="none"
+                    stroke="#2563eb"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round" />
+            </svg>
+
+            <p>
+                Минимум:
+                @Model.Readings.Min(x => x.EngineTempC).ToString("F1") °C
+
+                | Максимум:
+                @Model.Readings.Max(x => x.EngineTempC).ToString("F1") °C
+            </p>
+        }
+    </section>
+
+    <section class="card">
+        <h2>История показаний</h2>
+
+        @if (Model.Readings.Count == 0)
+        {
+            <p>Показаний пока нет.</p>
+        }
+        else
+        {
+            <table>
+                <thead>
+                    <tr>
+                        <th>Время (UTC)</th>
+                        <th>Пробег</th>
+                        <th>Температура</th>
+                        <th>Код ошибки</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var reading in
+                        Model.Readings.OrderByDescending(x => x.OccurredAt))
+                    {
+                        <tr>
+                            <td>
+                                @reading.OccurredAt.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss")
+                            </td>
+                            <td>@reading.OdometerKm км</td>
+                            <td>@reading.EngineTempC °C</td>
+                            <td>@(reading.FaultCode ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+
+    @if (Model.ShowDemo)
+    {
+        <section class="card">
+            <h2>Демонстрационная обработка</h2>
+
+            <p>
+                Временная функция для шага 4.
+                Проверяет последнее показание
+                и создаёт заявки по бизнес-правилам.
+            </p>
+
+            <form method="post"
+                  asp-page-handler="Demo"
+                  asp-route-id="@Model.Id">
+
+                <button type="submit">
+                    Обработать последнее показание
+                </button>
+            </form>
+        </section>
+    }
+}
+
+<p>
+    <a asp-page="/Index">
+        ← Назад к автомобилям
+    </a>
+</p>

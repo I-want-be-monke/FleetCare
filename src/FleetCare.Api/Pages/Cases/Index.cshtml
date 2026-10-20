@@ -1,0 +1,132 @@
+﻿@page "/dashboard/cases"
+@model FleetCare.Api.Pages.Cases.IndexModel
+
+@{
+    ViewData["Title"] = "Ремонтные заявки";
+}
+
+<h1>Ремонтные заявки</h1>
+
+@if (TempData["Notice"] is not null)
+{
+    <p class="notice">@TempData["Notice"]</p>
+}
+
+@if (TempData["Error"] is not null)
+{
+    <p class="error">@TempData["Error"]</p>
+}
+
+<div asp-validation-summary="All"
+     class="error"></div>
+
+<section class="card">
+    <h2>Фильтр по статусу</h2>
+
+    <div class="actions">
+        <a asp-page="/Cases/Index">Все</a>
+
+        <a asp-page="/Cases/Index"
+           asp-route-status="New">
+            Новые
+        </a>
+
+        <a asp-page="/Cases/Index"
+           asp-route-status="InProgress">
+            В работе
+        </a>
+
+        <a asp-page="/Cases/Index"
+           asp-route-status="Completed">
+            Завершённые
+        </a>
+    </div>
+</section>
+
+<section class="card">
+    <h2>Список заявок</h2>
+
+    @if (Model.Items.Count == 0)
+    {
+        <p>Заявок с выбранным статусом нет.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Автомобиль</th>
+                    <th>Причина</th>
+                    <th>Статус</th>
+                    <th>Дата создания (UTC)</th>
+                    <th>Действие</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td>
+                            <a asp-page="/Vehicles/Details"
+                               asp-route-id="@item.VehicleId">
+                                @item.VehicleName
+                            </a>
+                        </td>
+
+                        <td>
+                            @(item.Reason == MaintenanceReason.ScheduledService
+                                ? "Плановое ТО"
+                                : $"Неисправность {item.FaultCode}")
+                        </td>
+
+                        <td>@item.Status</td>
+
+                        <td>
+                            @item.CreatedAt.UtcDateTime.ToString("yyyy-MM-dd HH:mm")
+                        </td>
+
+                        <td>
+                            @if (item.Status == CaseStatus.New)
+                            {
+                                <form method="post"
+                                      asp-page-handler="Change">
+
+                                    <input type="hidden"
+                                           name="caseId"
+                                           value="@item.Id" />
+
+                                    <button type="submit"
+                                            name="newStatus"
+                                            value="InProgress">
+                                        Взять в работу
+                                    </button>
+                                </form>
+                            }
+                            else if (item.Status == CaseStatus.InProgress)
+                            {
+                                <form method="post"
+                                      asp-page-handler="Change">
+
+                                    <input type="hidden"
+                                           name="caseId"
+                                           value="@item.Id" />
+
+                                    <button type="submit"
+                                            name="newStatus"
+                                            value="Completed">
+                                        Завершить
+                                    </button>
+                                </form>
+                            }
+                            else
+                            {
+                                <span>Завершена</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
