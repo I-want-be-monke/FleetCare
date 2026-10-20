@@ -11,14 +11,10 @@ namespace FleetCare.Api.Pages.Vehicles;
 public sealed class DetailsModel : PageModel
 {
     private readonly FleetCareDbContext _db;
-    private readonly MaintenanceService _service;
-    private readonly IWebHostEnvironment _environment;
     private readonly TelemetryIngestionService _ingestion;
 
     public DetailsModel(
         FleetCareDbContext db,
-        MaintenanceService service,
-        IWebHostEnvironment environment,
         TelemetryIngestionService ingestion)
     {
         _db = db;
@@ -35,6 +31,7 @@ public sealed class DetailsModel : PageModel
 
     public List<TelemetryReading> Readings { get; private set; }
         = new();
+
     public async Task<IActionResult> OnGetAsync(
         CancellationToken ct)
     {
@@ -95,8 +92,6 @@ public sealed class DetailsModel : PageModel
             return Page();
         }
     }
-
-    // ВРЕМЕННЫЙ обработчик для демонстрации.
 
     private async Task LoadAsync(CancellationToken ct)
     {
