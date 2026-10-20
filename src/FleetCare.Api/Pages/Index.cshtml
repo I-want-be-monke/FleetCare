@@ -1,0 +1,94 @@
+﻿@page "/dashboard"
+@model FleetCare.Api.Pages.IndexModel
+
+@{
+    ViewData["Title"] = "Автомобили";
+}
+
+<h1>Автомобили</h1>
+
+<section class="card">
+    <h2>Добавить автомобиль</h2>
+
+    <form method="post" asp-page-handler="Create">
+        <div asp-validation-summary="All"
+             class="error"></div>
+
+        <div class="form-grid">
+            <label>
+                Название
+                <input asp-for="Form.Name"
+                       placeholder="Volvo FH" />
+            </label>
+
+            <label>
+                Текущий пробег
+                <input asp-for="Form.CurrentOdometerKm"
+                       type="number" />
+            </label>
+
+            <label>
+                Пробег последнего ТО
+                <input asp-for="Form.LastServiceOdometerKm"
+                       type="number" />
+            </label>
+
+            <label>
+                Интервал ТО
+                <input asp-for="Form.ServiceIntervalKm"
+                       type="number" />
+            </label>
+        </div>
+
+        <button type="submit">
+            Добавить автомобиль
+        </button>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Список автомобилей</h2>
+
+    @if (Model.Vehicles.Count == 0)
+    {
+        <p>Автомобилей пока нет.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Название</th>
+                    <th>Текущий пробег</th>
+                    <th>Последнее ТО</th>
+                    <th>Интервал</th>
+                    <th>Состояние</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var vehicle in Model.Vehicles)
+                {
+                    <tr>
+                        <td>@vehicle.Name</td>
+                        <td>@vehicle.CurrentOdometerKm км</td>
+                        <td>@vehicle.LastServiceOdometerKm км</td>
+                        <td>@vehicle.ServiceIntervalKm км</td>
+                        <td>
+                            @(vehicle.IsServiceDue
+                                ? "Требуется ТО по пробегу"
+                                : "ТО пока не требуется")
+                        </td>
+                        <td>
+                            <a asp-page="/Vehicles/Details"
+                               asp-route-id="@vehicle.Id">
+                                Открыть
+                            </a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>

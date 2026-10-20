@@ -12,6 +12,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 
+builder.Services.AddRazorPages();
+
 builder.Services.AddProblemDetails();
 
 // Enum в HTTP будет представлен строкой: "New", "Completed".
@@ -33,6 +35,8 @@ builder.Services.AddDbContext<FleetCareDbContext>(options =>
 builder.Services.AddScoped<MaintenanceService>();
 
 var app = builder.Build();
+
+app.UseStaticFiles();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
@@ -295,5 +299,7 @@ app.MapPatch("/cases/{id:guid}/status", async (
             detail: ex.Message);
     }
 });
+
+app.MapRazorPages();
 
 app.Run();
