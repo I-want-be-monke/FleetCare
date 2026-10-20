@@ -1,8 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using FleetCare.Domain.Entities;
-using FleetCare.Domain.Services;
 using FleetCare.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -24,8 +22,6 @@ public sealed class DetailsModel : PageModel
         TelemetryIngestionService ingestion)
     {
         _db = db;
-        _service = service;
-        _environment = environment;
         _ingestion = ingestion;
     }
 
@@ -39,9 +35,6 @@ public sealed class DetailsModel : PageModel
 
     public List<TelemetryReading> Readings { get; private set; }
         = new();
-
-    public bool ShowDemo => _environment.IsDevelopment();
-
     public async Task<IActionResult> OnGetAsync(
         CancellationToken ct)
     {
@@ -104,61 +97,6 @@ public sealed class DetailsModel : PageModel
     }
 
     // ВРЕМЕННЫЙ обработчик для демонстрации.
-    // Удалить при реализации настоящего Worker на шаге 7.
-    public async Task<IActionResult> OnPostDemoAsync(
-        CancellationToken ct)
-    {
-        if (!ShowDemo)
-            return NotFound();
-
-        var vehicle = await _db.Vehicles
-            .FirstOrDefaultAsync(x => x.Id == Id, ct);
-
-        if (vehicle is null)
-            return NotFound();
-
-        var reading = await _db.TelemetryReadings
-            .Where(x => x.VehicleId == Id)
-            .OrderByDescending(x => x.OccurredAt)
-            .FirstOrDefaultAsync(ct);
-
-        if (reading is null)
-        {
-            TempData["Error"] = "Нет показаний для обработки.";
-
-            return RedirectToPage(
-                "/Vehicles/Details",
-                new { id = Id });
-        }
-
-        var existingCases = await _db.MaintenanceCases
-            .Where(x => x.VehicleId == Id)
-            .ToListAsync(ct);
-
-        try
-        {
-            var created = _service.Evaluate(
-                vehicle,
-                reading,
-                existingCases,
-                DateTimeOffset.UtcNow);
-
-            _db.MaintenanceCases.AddRange(created);
-
-            await _db.SaveChangesAsync(ct);
-
-            TempData["Notice"] =
-                $"Демонстрационная обработка: создано заявок {created.Count}.";
-        }
-        catch (ArgumentException ex)
-        {
-            TempData["Error"] = ex.Message;
-        }
-
-        return RedirectToPage(
-            "/Vehicles/Details",
-            new { id = Id });
-    }
 
     private async Task LoadAsync(CancellationToken ct)
     {
