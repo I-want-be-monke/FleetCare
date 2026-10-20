@@ -67,12 +67,21 @@ riskId в рабочей Python-аналитике должен
 определяться детерминированно на основе
 vehicleId, kind и sourceEventId.
 
+
 ## Current implementation
 
-сейчас используется тестовый C# producer/consumer.
+- Apache Kafka работает локально через Docker Compose.
+- JSON-контракты telemetry.recorded.v1 и risk.detected.v1 определены.
+- KafkaSmoke проверяет отправку и чтение обоих типов событий.
+- API и Razor Pages сохраняют телеметрию через Transactional Outbox.
+- TelemetryReading и OutboxMessage сохраняются в одной транзакции PostgreSQL.
+- OutboxPublisher публикует события в telemetry.recorded.v1.
+- Ключ Kafka-сообщения — vehicleId.
+- После успешной публикации записывается PublishedAt.
+- При недоступности Kafka отправка повторяется после восстановления.
+- Идемпотентный .NET Worker будет реализован на позже.
+- Python-аналитика будет добавлена на позже.
 
-Публикация из API через Transactional Outbox
-будет добавлена позже.
 
 Обработка событий .NET Worker
 будет добавлена позже.

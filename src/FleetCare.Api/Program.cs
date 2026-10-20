@@ -7,6 +7,8 @@ using FleetCare.Domain.Services;
 using FleetCare.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using FleetCare.Api.Background;
+using FleetCare.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +35,10 @@ builder.Services.AddDbContext<FleetCareDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 builder.Services.AddScoped<MaintenanceService>();
+
+builder.Services.AddScoped<TelemetryIngestionService>();
+
+builder.Services.AddHostedService<OutboxPublisher>();
 
 var app = builder.Build();
 
@@ -114,7 +120,9 @@ app.MapGet("/vehicles/{id:guid}", async (
 // 3. Принять показание телеметрии
 app.MapPost("/telemetry", async (
     CreateTelemetryRequest request,
-    FleetCareDbContext db) =>
+    FleetCareDbContext db,
+    TelemetryIngestionService ingestion,
+    CancellationToken ct) =>
 {
     if (request.FaultCode?.Trim().Length > 50)
     {
@@ -123,8 +131,9 @@ app.MapPost("/telemetry", async (
             title: "Некорректный код неисправности",
             detail: "Код неисправности не должен превышать 50 символов.");
     }
+
     var vehicleExists = await db.Vehicles
-        .AnyAsync(x => x.Id == request.VehicleId);
+        .AnyAsync(x => x.Id == request.VehicleId, ct);
 
     if (!vehicleExists)
     {
@@ -134,7 +143,7 @@ app.MapPost("/telemetry", async (
     }
 
     var eventExists = await db.TelemetryReadings
-        .AnyAsync(x => x.EventId == request.EventId);
+        .AnyAsync(x => x.EventId == request.EventId, ct);
 
     if (eventExists)
     {
@@ -164,11 +173,12 @@ app.MapPost("/telemetry", async (
             detail: ex.Message);
     }
 
-    db.TelemetryReadings.Add(reading);
-
     try
     {
-        await db.SaveChangesAsync();
+        // В одной транзакции сохраняются:
+        // 1. TelemetryReading
+        // 2. OutboxMessage
+        await ingestion.SaveAsync(reading, ct);
     }
     catch (DbUpdateException ex)
         when (ex.InnerException is PostgresException pg &&
@@ -184,6 +194,7 @@ app.MapPost("/telemetry", async (
         $"/vehicles/{reading.VehicleId}/telemetry",
         reading);
 });
+
 
 // 4. История показаний автомобиля
 app.MapGet("/vehicles/{id:guid}/telemetry", async (

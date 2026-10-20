@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using FleetCare.Infrastructure.Services;
 
 namespace FleetCare.Api.Pages.Vehicles;
 
@@ -14,15 +15,18 @@ public sealed class DetailsModel : PageModel
     private readonly FleetCareDbContext _db;
     private readonly MaintenanceService _service;
     private readonly IWebHostEnvironment _environment;
+    private readonly TelemetryIngestionService _ingestion;
 
     public DetailsModel(
         FleetCareDbContext db,
         MaintenanceService service,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        TelemetryIngestionService ingestion)
     {
         _db = db;
         _service = service;
         _environment = environment;
+        _ingestion = ingestion;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -81,9 +85,7 @@ public sealed class DetailsModel : PageModel
                 Form.EngineTempC,
                 Form.FaultCode);
 
-            _db.TelemetryReadings.Add(reading);
-
-            await _db.SaveChangesAsync(ct);
+            await _ingestion.SaveAsync(reading, ct);
 
             TempData["Notice"] = "Показание сохранено.";
 
