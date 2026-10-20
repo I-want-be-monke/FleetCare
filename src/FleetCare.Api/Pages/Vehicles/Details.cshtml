@@ -165,28 +165,6 @@
             </table>
         }
     </section>
-
-    @if (Model.ShowDemo)
-    {
-        <section class="card">
-            <h2>Демонстрационная обработка</h2>
-
-            <p>
-                Временная функция для шага 4.
-                Проверяет последнее показание
-                и создаёт заявки по бизнес-правилам.
-            </p>
-
-            <form method="post"
-                  asp-page-handler="Demo"
-                  asp-route-id="@Model.Id">
-
-                <button type="submit">
-                    Обработать последнее показание
-                </button>
-            </form>
-        </section>
-    }
 }
 
 <p>
