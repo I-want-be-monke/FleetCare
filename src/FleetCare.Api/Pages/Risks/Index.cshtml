@@ -1,0 +1,47 @@
+@page "/dashboard/risks"
+@model FleetCare.Api.Pages.Risks.IndexModel
+
+@{
+    ViewData["Title"] = "Аналитические предупреждения";
+}
+
+<h1>Аналитические предупреждения</h1>
+<p>Отклонение температуры требует проверки диспетчером. Оценка показывает выраженность отклонения, а не вероятность поломки.</p>
+
+@if (TempData["Notice"] is not null) { <p class="notice">@TempData["Notice"]</p> }
+@if (TempData["Error"] is not null) { <p class="error">@TempData["Error"]</p> }
+
+<section class="card">
+    @if (Model.Items.Count == 0)
+    {
+        <p>Предупреждений пока нет.</p>
+    }
+    else
+    {
+        <table>
+            <thead><tr><th>Автомобиль</th><th>Тип</th><th>Оценка</th><th>Причина</th><th>Статус</th><th>Время (UTC)</th><th>Действие</th></tr></thead>
+            <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr>
+                    <td><a asp-page="/Vehicles/Details" asp-route-id="@item.VehicleId">@item.VehicleName</a></td>
+                    <td>Рост температуры двигателя</td>
+                    <td>@item.Score.ToString("P0")</td>
+                    <td>@item.Explanation</td>
+                    <td>@(item.Status == FleetCare.Domain.Enums.RiskAlertStatus.New ? "Новое" : "Проверено")</td>
+                    <td>@item.DetectedAt.UtcDateTime.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>
+                        @if (item.Status == FleetCare.Domain.Enums.RiskAlertStatus.New)
+                        {
+                            <form method="post" asp-page-handler="Review">
+                                <input type="hidden" name="riskId" value="@item.RiskId" />
+                                <button type="submit">Проверено</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</section>
