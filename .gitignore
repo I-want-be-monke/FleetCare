@@ -7,3 +7,6 @@ riderModule.iml
 .venv/
 __pycache__/
 .env
+.env.*
+.pytest_cache/
+*.pyc

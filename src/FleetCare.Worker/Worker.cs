@@ -8,6 +8,7 @@ public sealed class Worker : BackgroundService
 {
     private const string TelemetryTopic =
         "telemetry.recorded.v1";
+    private const string RiskTopic = "risk.detected.v1";
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<Worker> _logger;
@@ -72,11 +73,11 @@ public sealed class Worker : BackgroundService
 
                 try
                 {
-                    consumer.Subscribe(TelemetryTopic);
+                    consumer.Subscribe([TelemetryTopic, RiskTopic]);
 
                     _logger.LogInformation(
-                        "Worker запущен. Topic={Topic}, GroupId={GroupId}",
-                        TelemetryTopic,
+                        "Worker запущен. Topics={TelemetryTopic},{RiskTopic}, GroupId={GroupId}",
+                        TelemetryTopic, RiskTopic,
                         _consumerConfig.GroupId);
 
                     while (!stoppingToken.IsCancellationRequested)
@@ -95,17 +96,26 @@ public sealed class Worker : BackgroundService
                         using var scope =
                             _scopeFactory.CreateScope();
 
-                        var processor =
-                            scope.ServiceProvider
-                                .GetRequiredService<
-                                    TelemetryEventProcessor>();
-
-                        // Сначала PostgreSQL.
-                        var processingResult =
-                            await processor.ProcessAsync(
-                                result.Message.Key,
-                                result.Message.Value,
-                                stoppingToken);
+                        string outcome;
+                        if (result.Topic == TelemetryTopic)
+                        {
+                            var processor = scope.ServiceProvider
+                                .GetRequiredService<TelemetryEventProcessor>();
+                            var processingResult = await processor.ProcessAsync(
+                                result.Message.Key, result.Message.Value, stoppingToken);
+                            outcome = $"{processingResult.Outcome}; cases={processingResult.CreatedCases}";
+                        }
+                        else if (result.Topic == RiskTopic)
+                        {
+                            var processor = scope.ServiceProvider
+                                .GetRequiredService<RiskEventProcessor>();
+                            outcome = await processor.ProcessAsync(
+                                result.Message.Key, result.Message.Value, stoppingToken);
+                        }
+                        else
+                        {
+                            throw new InvalidDataException($"Неизвестный топик: {result.Topic}");
+                        }
 
                         // Только после успешного завершения
                         // обработки подтверждаем Kafka offset.
@@ -113,12 +123,11 @@ public sealed class Worker : BackgroundService
 
                         _logger.LogInformation(
                             "Kafka offset подтверждён. " +
-                            "EventKey={Key}, Offset={Offset}, " +
-                            "Outcome={Outcome}, CreatedCases={Count}",
+                            "Topic={Topic}, EventKey={Key}, Offset={Offset}, Outcome={Outcome}",
+                            result.Topic,
                             result.Message.Key,
                             result.TopicPartitionOffset,
-                            processingResult.Outcome,
-                            processingResult.CreatedCases);
+                            outcome);
                     }
                 }
                 finally

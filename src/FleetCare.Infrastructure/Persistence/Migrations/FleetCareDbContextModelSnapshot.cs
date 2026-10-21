@@ -111,6 +111,52 @@ namespace FleetCare.Infrastructure.Persistence.Migrations
                     b.ToTable("ProcessedMessages");
                 });
 
+            modelBuilder.Entity("FleetCare.Domain.Entities.RiskAlert", b =>
+                {
+                    b.Property<Guid>("RiskId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("DetectedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Explanation")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double>("Score")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid>("SourceEventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("VehicleId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("RiskId");
+
+                    b.HasIndex("SourceEventId");
+
+                    b.HasIndex("VehicleId", "DetectedAt");
+
+                    b.ToTable("RiskAlerts", t =>
+                        {
+                            t.HasCheckConstraint("CK_RiskAlert_Score", "\"Score\" >= 0 AND \"Score\" <= 1");
+                        });
+                });
+
             modelBuilder.Entity("FleetCare.Domain.Entities.TelemetryReading", b =>
                 {
                     b.Property<Guid>("EventId")
@@ -175,6 +221,21 @@ namespace FleetCare.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("FleetCare.Domain.Entities.MaintenanceCase", b =>
                 {
+                    b.HasOne("FleetCare.Domain.Entities.Vehicle", null)
+                        .WithMany()
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FleetCare.Domain.Entities.RiskAlert", b =>
+                {
+                    b.HasOne("FleetCare.Domain.Entities.TelemetryReading", null)
+                        .WithMany()
+                        .HasForeignKey("SourceEventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("FleetCare.Domain.Entities.Vehicle", null)
                         .WithMany()
                         .HasForeignKey("VehicleId")

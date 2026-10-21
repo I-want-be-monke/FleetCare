@@ -21,6 +21,7 @@ builder.Services.AddScoped<MaintenanceService>();
 
 // Обработчик сообщений Kafka.
 builder.Services.AddScoped<TelemetryEventProcessor>();
+builder.Services.AddScoped<RiskEventProcessor>();
 
 // Фоновый Kafka Consumer.
 builder.Services.AddHostedService<Worker>();
