@@ -9,18 +9,23 @@
 - analytics — анализ температурных аномалий на Python.
 - simulator — генерация показаний машин.
 
-## Будущая схема взаимодействия
+## Текущая схема взаимодействия
 
 ```mermaid
 flowchart TD
     S[Simulator] --> A[ASP.NET Core API]
     A --> DB[(PostgreSQL)]
-    A --> K[Apache Kafka]
+    A --> O[PostgreSQL Outbox]
+    O --> K[Apache Kafka]
     K --> W[.NET Worker]
     K --> P[Python Analytics]
     P --> K
     W --> DB
 ```
+
+Python читает сохранённую историю температур через роль PostgreSQL только для
+чтения и публикует `risk.detected.v1`. .NET Worker читает этот топик и сохраняет
+предупреждения для страницы `/dashboard/risks`. [Подробности](analytics.md).
 
 ## Главные принципы
 

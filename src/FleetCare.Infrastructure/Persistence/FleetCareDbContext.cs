@@ -17,6 +17,7 @@ public sealed class FleetCareDbContext : DbContext
     public DbSet<MaintenanceCase> MaintenanceCases => Set<MaintenanceCase>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<ProcessedMessage> ProcessedMessages => Set<ProcessedMessage>();
+    public DbSet<RiskAlert> RiskAlerts => Set<RiskAlert>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -125,6 +126,20 @@ public sealed class FleetCareDbContext : DbContext
             entity.Property(x => x.HandlerName)
                 .IsRequired()
                 .HasMaxLength(150);
+        });
+
+        modelBuilder.Entity<RiskAlert>(entity =>
+        {
+            entity.HasKey(x => x.RiskId);
+            entity.Property(x => x.Kind).IsRequired().HasMaxLength(100);
+            entity.Property(x => x.Explanation).IsRequired().HasMaxLength(1000);
+            entity.HasOne<Vehicle>().WithMany()
+                .HasForeignKey(x => x.VehicleId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<TelemetryReading>().WithMany()
+                .HasForeignKey(x => x.SourceEventId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(x => new { x.VehicleId, x.DetectedAt });
+            entity.ToTable(table => table.HasCheckConstraint(
+                "CK_RiskAlert_Score", "\"Score\" >= 0 AND \"Score\" <= 1"));
         });
     }
 }

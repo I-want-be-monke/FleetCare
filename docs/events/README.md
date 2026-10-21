@@ -81,6 +81,10 @@ vehicleId, kind и sourceEventId.
 - Повторное событие с тем же eventId безопасно
   благодаря ProcessedMessage.
 - Worker восстанавливает обработку после перезапуска.
-- risk.detected.v1 будет подключён после Python-аналитики.
-
-Python-аналитика и обработка risk.detected.v1 запланированы на шаг 8.
+- Python Analytics читает telemetry.recorded.v1 в отдельной consumer group,
+  сверяет сообщение с PostgreSQL и публикует risk.detected.v1 при первом
+  устойчивом отклонении температуры.
+- .NET Worker читает risk.detected.v1, сохраняет RiskAlert и ProcessedMessage
+  в одной транзакции и подтверждает offset после коммита.
+- Повторная доставка с тем же riskId не создаёт второе предупреждение.
+- Подробности и локальный запуск: [аналитика](../analytics.md).
