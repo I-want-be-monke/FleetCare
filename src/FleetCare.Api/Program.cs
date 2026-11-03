@@ -52,6 +52,18 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// Readiness check and read-only endpoints used by the demo simulator.
+app.MapGet("/health", async (FleetCareDbContext db, CancellationToken ct) =>
+    await db.Database.CanConnectAsync(ct)
+        ? Results.Ok(new { status = "ok" })
+        : Results.StatusCode(503));
+
+app.MapGet("/vehicles", async (FleetCareDbContext db, CancellationToken ct) =>
+    await db.Vehicles.AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct));
+
+app.MapGet("/risks", async (FleetCareDbContext db, CancellationToken ct) =>
+    await db.RiskAlerts.AsNoTracking().OrderByDescending(x => x.DetectedAt).ToListAsync(ct));
+
 // 1. Создать автомобиль
 app.MapPost("/vehicles", async (
     CreateVehicleRequest request,

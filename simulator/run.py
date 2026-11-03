@@ -64,14 +64,14 @@ def find_or_create_vehicle(name, odometer, interval):
     return vehicle["id"]
 
 
-def event_id(seed, kind, index):
-    # Stable across runs, including after demo reset.
-    return str(uuid5(NAMESPACE_URL, f"fleetcare:step9:v1:{seed}:{kind}:{index}"))
+def event_id(seed, kind, vehicle_id, index):
+    # Include vehicle UUID to avoid conflicts with historical Kafka messages after reset.
+    return str(uuid5(NAMESPACE_URL, f"fleetcare:step9:v1:{seed}:{kind}:{vehicle_id}:{index}"))
 
 
 def send_reading(seed, kind, vehicle_id, index, odometer, temperature, fault=None):
     payload = {
-        "eventId": event_id(seed, kind, index),
+        "eventId": event_id(seed, kind, vehicle_id, index),
         "vehicleId": vehicle_id,
         "occurredAt": (BASE_TIME + timedelta(days=seed, minutes=index))
             .isoformat().replace("+00:00", "Z"),
@@ -88,9 +88,11 @@ def send_reading(seed, kind, vehicle_id, index, odometer, temperature, fault=Non
         # 409 is expected on an exact replay, not a generic success condition.
         readings = request_json("GET", f"/vehicles/{vehicle_id}/telemetry")
         matching = [r for r in readings if r["eventId"] == payload["eventId"]]
-        if len(matching) != 1 or matching[0]["odometerKm"] != odometer or (
-            float(matching[0]["engineTempC"]) != float(temperature)
-        ):
+        if (len(matching) != 1
+                or matching[0]["vehicleId"] != vehicle_id
+                or matching[0]["odometerKm"] != odometer
+                or float(matching[0]["engineTempC"]) != float(temperature)
+                or matching[0]["faultCode"] != fault):
             raise RuntimeError(f"Event collision or mismatched replay: {payload['eventId']}")
         print(f"{kind}[{index}]: already recorded", flush=True)
 
@@ -132,7 +134,7 @@ def verify(seed, vehicle_ids, timeout=120):
         matching_vehicles = [v for v in vehicles if v["id"] in vehicle_ids]
         last = (len(matching_vehicles), readings, len(cases), len(risks))
         if last == (3, 12, 2, 1):
-            if sorted(c["reason"] for c in cases) != [0, 1]:
+            if sorted(c["reason"] for c in cases) != ["FaultCode", "ScheduledService"]:
                 raise AssertionError(f"Unexpected maintenance reasons: {cases}")
             if risks[0]["kind"] != "EngineTemperatureTrend" or risks[0]["score"] != 0.5:
                 raise AssertionError(f"Unexpected temperature risk: {risks}")
