@@ -1,0 +1,163 @@
+# Isolated stack: use -p fleetcare-step9 to avoid touching the previous steps.
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fleetcare
+      POSTGRES_USER: fleetcare
+      POSTGRES_PASSWORD: ${FLEETCARE_DB_PASSWORD:?Set FLEETCARE_DB_PASSWORD}
+      FLEETCARE_ANALYTICS_PASSWORD: ${FLEETCARE_ANALYTICS_PASSWORD:?Set FLEETCARE_ANALYTICS_PASSWORD}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres/init-analytics.sh:/docker-entrypoint-initdb.d/10-analytics.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U fleetcare -d fleetcare"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  kafka:
+    image: apache/kafka:4.2.2
+    hostname: kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: "/var/lib/kafka/data"
+      CLUSTER_ID: "4L6g3nShT-eMCtK--X86sw"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 15s
+      retries: 30
+      start_period: 30s
+
+  kafka-init:
+    image: apache/kafka:4.2.2
+    restart: "no"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-ec"]
+    command: |
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic telemetry.recorded.v1 --partitions 3 --replication-factor 1
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic risk.detected.v1 --partitions 3 --replication-factor 1
+      echo "FleetCare Kafka topics ready."
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: src/FleetCare.Migrator/Dockerfile
+    restart: "on-failure:3"
+    environment:
+      ConnectionStrings__FleetCareDb: "Host=postgres;Port=5432;Database=fleetcare;Username=fleetcare;Password=${FLEETCARE_DB_PASSWORD:?Set FLEETCARE_DB_PASSWORD}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ../..
+      dockerfile: src/FleetCare.Api/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:15015:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__FleetCareDb: "Host=postgres;Port=5432;Database=fleetcare;Username=fleetcare;Password=${FLEETCARE_DB_PASSWORD:?Set FLEETCARE_DB_PASSWORD}"
+      Kafka__BootstrapServers: "kafka:9092"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: src/FleetCare.Worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      DOTNET_ENVIRONMENT: Production
+      ConnectionStrings__FleetCareDb: "Host=postgres;Port=5432;Database=fleetcare;Username=fleetcare;Password=${FLEETCARE_DB_PASSWORD:?Set FLEETCARE_DB_PASSWORD}"
+      Kafka__BootstrapServers: "kafka:9092"
+      Kafka__GroupId: "fleetcare-maintenance-worker-v1"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+
+  python-worker:
+    build:
+      context: ../..
+      dockerfile: analytics/Dockerfile
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: fleetcare
+      PGUSER: fleetcare_analytics_worker
+      PGPASSWORD: ${FLEETCARE_ANALYTICS_PASSWORD:?Set FLEETCARE_ANALYTICS_PASSWORD}
+      FLEETCARE_KAFKA_BOOTSTRAP: "kafka:9092"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+
+  simulator:
+    profiles: ["tools"]
+    build:
+      context: ../..
+      dockerfile: simulator/Dockerfile
+    environment:
+      FLEETCARE_API_BASE: "http://api:8080"
+    depends_on:
+      api:
+        condition: service_started
+
+  reset-demo:
+    profiles: ["tools"]
+    image: postgres:17
+    environment:
+      PGPASSWORD: ${FLEETCARE_DB_PASSWORD:?Set FLEETCARE_DB_PASSWORD}
+    volumes:
+      - ./postgres/reset-demo.sql:/scripts/reset-demo.sql:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint:
+      - psql
+      - -h
+      - postgres
+      - -U
+      - fleetcare
+      - -d
+      - fleetcare
+      - -v
+      - ON_ERROR_STOP=1
+      - -f
+      - /scripts/reset-demo.sql
+
+volumes:
+  pg_data:
+  kafka_data:
